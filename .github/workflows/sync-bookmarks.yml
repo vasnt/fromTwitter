@@ -6,32 +6,43 @@ on:
     - cron: '0 */6 * * *'
   workflow_dispatch:  # Allows manual trigger from GitHub UI
 
+permissions:
+  contents: write  # Required for committing changes
+
 jobs:
   sync-bookmarks:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          pip install requests
+          pip install requests python-dotenv
 
       - name: Sync Twitter bookmarks
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
           TWITTER_USER_ID: '1675200858425016320'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python sync_bookmarks.py
 
       - name: Commit and push if changed
         run: |
           git config --global user.name 'GitHub Actions Bot'
           git config --global user.email 'actions@github.com'
-          git add twitter_bookmarks.md
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-sync: Update Twitter bookmarks" && git push)
+          git add twitter_bookmarks.md || true
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🔄 Auto-sync: Update Twitter bookmarks [$(date +'%Y-%m-%d %H:%M UTC')]"
+            git push
+          fi
